@@ -1,0 +1,10 @@
+node_modules/
+coverage/
+*.tgz
+*.log
+.env
+.env.*
+.npmrc
+zeta-notify.settings.json*
+Thumbs.db
+.DS_Store

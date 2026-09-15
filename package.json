@@ -1,0 +1,19 @@
+{
+  "name": "dsh-notify-zeta",
+  "version": "0.1.1",
+  "type": "module",
+  "description": "DeepSeek Harness notification center with interactive Windows question and approval cards",
+  "license": "MIT",
+  "author": { "name": "zeta987", "url": "https://github.com/zeta987" },
+  "repository": { "type": "git", "url": "git+https://github.com/zeta987/dsh-notify-zeta.git" },
+  "homepage": "https://github.com/zeta987/dsh-notify-zeta#readme",
+  "bugs": { "url": "https://github.com/zeta987/dsh-notify-zeta/issues" },
+  "keywords": ["dsh-plugin", "deepseek-harness", "dsh", "notifications", "windows", "wpf", "approval"],
+  "engines": { "node": ">=22.19.0", "dsh": "0.1.5-rc.1" },
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "main": "lib/index.js",
+  "exports": { ".": "./lib/index.js", "./client": "./lib/client.js", "./package.json": "./package.json" },
+  "files": ["lib", "native", "cordis.patch.yml", "README.md", "README.zh-TW.md", "README.zh-CN.md", "LICENSE", "docs/images", "docs/security.md"],
+  "scripts": { "test": "node --test tests/*.test.mjs" },
+  "dsh": { "manifestVersion": 1, "bundle": { "patch": "./cordis.patch.yml" }, "client": { "platform": "web" } }
+}

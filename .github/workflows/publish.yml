@@ -1,0 +1,71 @@
+# Publish to npm when a version tag is pushed.
+#
+# Trigger: `git tag -s v0.1.2 -m "dsh-notify-zeta 0.1.2" && git push origin v0.1.2`.
+# The tag must equal the version in package.json; the job refuses a mismatch
+# so a stale package.json cannot ship under a newer tag.
+#
+# Credentials: npm trusted publishing (OIDC). The trusted publisher on npmjs.com
+# names this repository and this workflow file, `id-token: write` lets npm mint
+# the short-lived token, and no `.npmrc` may carry an auth token on that path,
+# which is why setup-node runs without `registry-url`. A granular token stored
+# as the NPM_TOKEN repository secret is used instead only when it is set.
+#
+# Provenance attestation is switched on only while the repository is public:
+# npm does not generate provenance for a private repository.
+#
+# The job runs on Windows because the test suite exercises the native
+# PowerShell card; the shell steps use bash, which the runner provides.
+name: publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.19.0'
+
+      # Trusted publishing needs npm >= 11.5.1; Node 22 bundles an older one.
+      - run: npm install -g npm@latest
+
+      - name: Check that the tag matches package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$version" ]; then
+            echo "tag v$tag does not match package.json version $version" >&2
+            exit 1
+          fi
+
+      - name: Test and pack
+        run: |
+          npm test
+          npm pack --dry-run --ignore-scripts
+
+      - name: Publish
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: ${{ !github.event.repository.private }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$HOME/.npmrc"
+            echo "publishing with the NPM_TOKEN secret"
+          else
+            echo "publishing with npm trusted publishing (OIDC)"
+          fi
+          echo "provenance: $NPM_CONFIG_PROVENANCE"
+          npm publish --access public

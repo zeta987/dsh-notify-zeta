@@ -2,12 +2,14 @@ import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import { spawn, spawnSync } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import test from 'node:test'
 
 import { createNativeBridge } from '../lib/native.js'
 import { createHost } from '../lib/index.js'
+import { HOST_STRINGS } from '../lib/core.js'
 
 const workspace = path.dirname(fileURLToPath(import.meta.url))
 const scriptPath = path.resolve(workspace, '..', 'native', 'notify.ps1')
@@ -99,6 +101,62 @@ test('show lazily starts fixed Windows PowerShell and writes newline JSON', () =
 
   bridge.dispose()
   fake.children[0].emit('close', 0, null)
+})
+
+test('the host card wording rides along with the show message', () => {
+  const fake = makeSpawn()
+  const bridge = createNativeBridge({ platform: 'win32', spawnImpl: fake.spawnImpl })
+  const event = { id: 'event-1', kind: 'question', title: 'Pick one' }
+  const labels = { header: 'Zeta Notify', submit: 'Send answer' }
+
+  assert.equal(bridge.show(event, { preview: true }, labels), true)
+  // A non-object block is dropped so the script keeps its own constants.
+  assert.equal(bridge.show(event, { preview: true }, 'en'), true)
+
+  assert.deepEqual(parseWrites(fake.children[0]), [
+    { type: 'show', event, settings: { preview: true }, labels },
+    { type: 'show', event, settings: { preview: true } },
+  ])
+  bridge.dispose()
+  fake.children[0].emit('close', 0, null)
+})
+
+test('an English host sends English card labels and a Chinese host sends Chinese ones', () => {
+  for (const [language, expected] of [['en', HOST_STRINGS.en.native], ['zh', HOST_STRINGS.zh.native]]) {
+    const sent = []
+    const bridge = {
+      available: true,
+      show: (_event, _settings, labels) => {
+        sent.push(labels)
+        return true
+      },
+      close: () => {},
+      dispose: () => {},
+    }
+    const ctx = {
+      connection: { requestRejection: () => 401 },
+      webServer: { register: () => () => {} },
+      on: () => () => {},
+    }
+    const host = createHost(ctx, { bridge, language })
+    host.center.publish({ kind: 'completed', sessionId: 'session-1' })
+
+    assert.equal(sent.length, 1)
+    assert.deepEqual(sent[0], expected)
+    host.dispose()
+  }
+
+  assert.equal(HOST_STRINGS.en.native.header, 'Zeta Notify')
+  assert.equal(HOST_STRINGS.en.native.submit, 'Send answer')
+  assert.equal(HOST_STRINGS.en.native.allowOnce, 'Allow once')
+  assert.equal(HOST_STRINGS.en.native.reject, 'Reject')
+  assert.equal(HOST_STRINGS.en.native.later, 'Later')
+  assert.equal(HOST_STRINGS.en.native.close, 'Close')
+  assert.equal(HOST_STRINGS.en.native.custom, 'Other / more')
+  assert.equal(HOST_STRINGS.en.native.defaultTitle, 'DSH notification')
+  assert.equal(HOST_STRINGS.zh.native.header, 'Zeta 通知')
+  assert.equal(HOST_STRINGS.zh.native.submit, '送出回答')
+  assert.deepEqual(Object.keys(HOST_STRINGS.en.native), Object.keys(HOST_STRINGS.zh.native))
 })
 
 test('close never spawns a helper and sends a close message when running', () => {
@@ -432,6 +490,14 @@ test('non-Windows bridge remains unavailable and never spawns', () => {
   assert.equal(bridge.show({ id: 'event-1' }, {}), false)
   assert.equal(fake.calls.length, 0)
   bridge.dispose()
+})
+
+test('the helper reads every label the host sends and stays ASCII', async () => {
+  const script = await readFile(scriptPath, 'utf8')
+  for (const key of Object.keys(HOST_STRINGS.zh.native)) {
+    assert.ok(script.includes(`'${key}'`), `notify.ps1 reads the ${key} label`)
+  }
+  assert.equal(/[^\x00-\x7F]/.test(script), false, 'notify.ps1 carries no literal non-ASCII text')
 })
 
 test('Windows PowerShell 5.1 parser accepts the native helper', { skip: process.platform !== 'win32' }, () => {

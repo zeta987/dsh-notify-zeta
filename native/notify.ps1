@@ -12,6 +12,9 @@ function ConvertFrom-Utf8Base64 {
   return [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value))
 }
 
+# Fallback wording. Every show message may carry a `labels` block written in the
+# host language; these constants only apply when a label is missing from it.
+$textHeader = ConvertFrom-Utf8Base64 'WmV0YSDpgJrnn6U='
 $textQuestion = ConvertFrom-Utf8Base64 '5ZWP6aGMIA=='
 $textCustom = ConvertFrom-Utf8Base64 '5YW25LuW77yP6KOc5YWF'
 $textSubmit = ConvertFrom-Utf8Base64 '6YCB5Ye65Zue562U'
@@ -53,7 +56,7 @@ $xaml = @'
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
-        <TextBlock Text="Zeta &#x901A;&#x77E5;" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
+        <TextBlock x:Name="HeaderTitle" Text="Zeta &#x901A;&#x77E5;" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
         <Border Grid.Column="1" CornerRadius="10" Background="#1E293B" Padding="9,4" VerticalAlignment="Center">
           <TextBlock Text="DSH" FontSize="11" Foreground="#94A3B8" />
         </Border>
@@ -69,6 +72,7 @@ $xaml = @'
 $reader = New-Object System.Xml.XmlNodeReader ([xml]$xaml)
 $window = [Windows.Markup.XamlReader]::Load($reader)
 $cardsPanel = $window.FindName('CardsPanel')
+$headerTitle = $window.FindName('HeaderTitle')
 $cards = @{}
 $isShuttingDown = $false
 
@@ -102,6 +106,13 @@ function Get-Text {
   $value = Get-Property $Object $Name ''
   if ($null -eq $value) { return '' }
   return [string]$value
+}
+
+function Get-Label {
+  param([object]$Labels, [string]$Name, [string]$Fallback)
+  $value = Get-Property $Labels $Name $null
+  if ($value -is [string] -and $value.Length -gt 0) { return $value }
+  return $Fallback
 }
 
 function Get-Brush {
@@ -238,13 +249,14 @@ function Add-Question {
     [System.Windows.Controls.StackPanel]$Panel,
     [object]$Question,
     [int]$Index,
-    [System.Collections.ArrayList]$AnswerStates
+    [System.Collections.ArrayList]$AnswerStates,
+    [object]$Labels
   )
   $questionPanel = New-Object System.Windows.Controls.StackPanel
   $questionPanel.Margin = New-Object System.Windows.Thickness(0, 8, 0, 7)
 
   $header = Get-Text $Question 'header'
-  if (-not $header) { $header = $script:textQuestion + ($Index + 1) }
+  if (-not $header) { $header = (Get-Label $Labels 'questionPrefix' $script:textQuestion) + ($Index + 1) }
   $questionPanel.Children.Add((New-Text $header 11 '#38BDF8' 'SemiBold' 3)) | Out-Null
   $questionPanel.Children.Add((New-Text (Get-Text $Question 'question') 13 '#F8FAFC' 'SemiBold' 4)) | Out-Null
 
@@ -261,7 +273,7 @@ function Add-Question {
     Add-Option $questionPanel $option $multiSelect $groupName $optionStates
   }
 
-  $customLabel = New-Text $script:textCustom 11 '#94A3B8' 'Normal' 3
+  $customLabel = New-Text (Get-Label $Labels 'custom' $script:textCustom) 11 '#94A3B8' 'Normal' 3
   $custom = New-Object System.Windows.Controls.TextBox
   $custom.AcceptsReturn = $true
   $custom.MaxLength = 16000
@@ -310,8 +322,17 @@ function Add-QuestionActions {
     [System.Windows.Controls.StackPanel]$Panel,
     [object]$Event,
     [System.Collections.ArrayList]$AnswerStates,
-    [string]$Id
+    [string]$Id,
+    [object]$Labels
   )
+  # Resolved before the click closures so GetNewClosure captures this card's
+  # wording even after a later card arrives in another language.
+  $tooLongText = Get-Label $Labels 'customTooLong' $script:textCustomTooLong
+  $exclusiveText = Get-Label $Labels 'exclusive' $script:textExclusive
+  $completePrefix = Get-Label $Labels 'pleaseComplete' $script:textPleaseComplete
+  $completeSuffix = Get-Label $Labels 'closingQuote' $script:textClosingQuote
+  $submittedText = Get-Label $Labels 'submitted' $script:textSubmitted
+
   $validation = New-Text '' 11 '#FCA5A5' 'Normal' 4
   $validation.Visibility = [System.Windows.Visibility]::Collapsed
   $Panel.Children.Add($validation) | Out-Null
@@ -319,8 +340,8 @@ function Add-QuestionActions {
   $buttons = New-Object System.Windows.Controls.StackPanel
   $buttons.Orientation = [System.Windows.Controls.Orientation]::Horizontal
   $buttons.Margin = New-Object System.Windows.Thickness(0, 6, 0, 0)
-  $submit = New-ActionButton $script:textSubmit '#0284C7'
-  $dismiss = New-ActionButton $script:textLater '#334155'
+  $submit = New-ActionButton (Get-Label $Labels 'submit' $script:textSubmit) '#0284C7'
+  $dismiss = New-ActionButton (Get-Label $Labels 'later' $script:textLater) '#334155'
   $buttons.Children.Add($submit) | Out-Null
   $buttons.Children.Add($dismiss) | Out-Null
   $Panel.Children.Add($buttons) | Out-Null
@@ -336,17 +357,17 @@ function Add-QuestionActions {
       }
       $custom = $state.Custom.Text.Trim()
       if ($custom.Length -gt 16000) {
-        $validation.Text = $script:textCustomTooLong
+        $validation.Text = $tooLongText
         $validation.Visibility = [System.Windows.Visibility]::Visible
         return
       }
       if (-not $state.MultiSelect -and $selected.Count -gt 0 -and $custom) {
-        $validation.Text = $script:textExclusive
+        $validation.Text = $exclusiveText
         $validation.Visibility = [System.Windows.Visibility]::Visible
         return
       }
       if ($selected.Count -eq 0 -and -not $custom) {
-        $validation.Text = $script:textPleaseComplete + $state.Header + $script:textClosingQuote
+        $validation.Text = $completePrefix + $state.Header + $completeSuffix
         $validation.Visibility = [System.Windows.Visibility]::Visible
         return
       }
@@ -362,7 +383,7 @@ function Add-QuestionActions {
     Write-Protocol $message
     $submit.IsEnabled = $false
     $dismiss.IsEnabled = $false
-    $validation.Text = $script:textSubmitted
+    $validation.Text = $submittedText
     $validation.Foreground = Get-Brush '#7DD3FC'
     $validation.Visibility = [System.Windows.Visibility]::Visible
   }.GetNewClosure())
@@ -377,17 +398,18 @@ function Add-ApprovalActions {
   param(
     [System.Windows.Controls.StackPanel]$Panel,
     [object]$Event,
-    [string]$Id
+    [string]$Id,
+    [object]$Labels
   )
-  $status = New-Text $script:textSubmitted 11 '#7DD3FC' 'Normal' 4
+  $status = New-Text (Get-Label $Labels 'submitted' $script:textSubmitted) 11 '#7DD3FC' 'Normal' 4
   $status.Visibility = [System.Windows.Visibility]::Collapsed
   $Panel.Children.Add($status) | Out-Null
   $buttons = New-Object System.Windows.Controls.StackPanel
   $buttons.Orientation = [System.Windows.Controls.Orientation]::Horizontal
   $buttons.Margin = New-Object System.Windows.Thickness(0, 9, 0, 0)
-  $allow = New-ActionButton $script:textAllowOnce '#059669'
-  $reject = New-ActionButton $script:textReject '#B91C1C'
-  $dismiss = New-ActionButton $script:textLater '#334155'
+  $allow = New-ActionButton (Get-Label $Labels 'allowOnce' $script:textAllowOnce) '#059669'
+  $reject = New-ActionButton (Get-Label $Labels 'reject' $script:textReject) '#B91C1C'
+  $dismiss = New-ActionButton (Get-Label $Labels 'later' $script:textLater) '#334155'
   $buttons.Children.Add($allow) | Out-Null
   $buttons.Children.Add($reject) | Out-Null
   $buttons.Children.Add($dismiss) | Out-Null
@@ -421,9 +443,10 @@ function Add-DismissAction {
   param(
     [System.Windows.Controls.StackPanel]$Panel,
     [object]$Event,
-    [string]$Id
+    [string]$Id,
+    [object]$Labels
   )
-  $dismiss = New-ActionButton $script:textClose '#334155'
+  $dismiss = New-ActionButton (Get-Label $Labels 'close' $script:textClose) '#334155'
   $dismiss.Margin = New-Object System.Windows.Thickness(0, 7, 0, 0)
   $Panel.Children.Add($dismiss) | Out-Null
   $dismiss.Add_Click({
@@ -433,10 +456,14 @@ function Add-DismissAction {
 }
 
 function Show-Notification {
-  param([object]$Event, [object]$Settings)
+  param([object]$Event, [object]$Settings, [object]$Labels)
   $id = Get-Text $Event 'id'
   if (-not $id) { throw 'show event requires a non-empty id' }
   Remove-Card $id
+
+  $headerText = Get-Label $Labels 'header' $script:textHeader
+  $window.Title = $headerText
+  $script:headerTitle.Text = $headerText
 
   $card = New-Object System.Windows.Controls.Border
   $card.Background = Get-Brush '#1E293B'
@@ -462,7 +489,7 @@ function Show-Notification {
   $content.Children.Add((New-Text $kindLabel 10 '#38BDF8' 'SemiBold' 4)) | Out-Null
 
   $title = Get-Text $Event 'title'
-  if (-not $showDetails -or -not $title) { $title = $script:textDefaultTitle }
+  if (-not $showDetails -or -not $title) { $title = Get-Label $Labels 'defaultTitle' $script:textDefaultTitle }
   $content.Children.Add((New-Text $title 15 '#F8FAFC' 'SemiBold' 5)) | Out-Null
 
   $body = Get-Text $Event 'body'
@@ -472,26 +499,26 @@ function Show-Notification {
   if ($showDetails -and $detail) { $content.Children.Add((New-Text $detail 11 '#94A3B8' 'Normal' 6)) | Out-Null }
 
   $toolName = Get-Text $Event 'toolName'
-  if ($showDetails -and $toolName) { $content.Children.Add((New-Text ($script:textTool + $toolName) 11 '#A5B4FC' 'SemiBold' 3)) | Out-Null }
+  if ($showDetails -and $toolName) { $content.Children.Add((New-Text ((Get-Label $Labels 'tool' $script:textTool) + $toolName) 11 '#A5B4FC' 'SemiBold' 3)) | Out-Null }
   $reason = Get-Text $Event 'reason'
-  if ($showDetails -and $reason) { $content.Children.Add((New-Text ($script:textReason + $reason) 11 '#CBD5E1' 'Normal' 6)) | Out-Null }
+  if ($showDetails -and $reason) { $content.Children.Add((New-Text ((Get-Label $Labels 'reason' $script:textReason) + $reason) 11 '#CBD5E1' 'Normal' 6)) | Out-Null }
 
   $submissionError = Get-Text $Event 'error'
   if ($submissionError) {
-    $content.Children.Add((New-Text ($script:textLastError + $submissionError) 11 '#FCA5A5' 'SemiBold' 7)) | Out-Null
+    $content.Children.Add((New-Text ((Get-Label $Labels 'lastError' $script:textLastError) + $submissionError) 11 '#FCA5A5' 'SemiBold' 7)) | Out-Null
   }
 
   $answerStates = New-Object System.Collections.ArrayList
   for ($index = 0; $index -lt $questions.Count; $index++) {
-    Add-Question $content $questions[$index] $index $answerStates
+    Add-Question $content $questions[$index] $index $answerStates $Labels
   }
 
   if ($kind -eq 'approval') {
-    Add-ApprovalActions $content $Event $id
+    Add-ApprovalActions $content $Event $id $Labels
   } elseif ($questions.Count -gt 0) {
-    Add-QuestionActions $content $Event $answerStates $id
+    Add-QuestionActions $content $Event $answerStates $id $Labels
   } else {
-    Add-DismissAction $content $Event $id
+    Add-DismissAction $content $Event $id $Labels
   }
 
   $persistent = $interactive
@@ -522,7 +549,7 @@ function Handle-InputLine {
   $type = Get-Text $message 'type'
   switch ($type) {
     'show' {
-      Show-Notification (Get-Property $message 'event') (Get-Property $message 'settings' ([pscustomobject]@{}))
+      Show-Notification (Get-Property $message 'event') (Get-Property $message 'settings' ([pscustomobject]@{})) (Get-Property $message 'labels')
     }
     'close' {
       Remove-Card (Get-Text $message 'id')

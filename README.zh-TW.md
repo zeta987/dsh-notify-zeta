@@ -1,4 +1,4 @@
-[![English](https://raw.githubusercontent.com/zeta987/dsh-notify-zeta/main/docs/images/lang-en.svg)](https://github.com/zeta987/dsh-notify-zeta/blob/main/README.md) [![繁體中文](https://raw.githubusercontent.com/zeta987/dsh-notify-zeta/main/docs/images/lang-zh-tw.svg)](https://github.com/zeta987/dsh-notify-zeta/blob/main/README.zh-TW.md) [![简体中文](https://raw.githubusercontent.com/zeta987/dsh-notify-zeta/main/docs/images/lang-zh-cn.svg)](https://github.com/zeta987/dsh-notify-zeta/blob/main/README.zh-CN.md)
+[English](https://github.com/zeta987/dsh-notify-zeta/blob/main/README.md) | [繁體中文](https://github.com/zeta987/dsh-notify-zeta/blob/main/README.zh-TW.md) | [简体中文](https://github.com/zeta987/dsh-notify-zeta/blob/main/README.zh-CN.md)
 
 # Zeta 通知
 

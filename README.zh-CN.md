@@ -66,22 +66,14 @@ npx @deepseek-ai/dsh web
 
 ### 更新
 
-不会自动更新。`dsh plugin` 是在 profile 目录里转发给 pnpm，启动 DSH 不会安装任何东西，host 与 Plugins 设置页也都不查 registry、不显示新版本。新版本只有在你主动要求时才会进到 profile：
+不会自动更新：`dsh plugin` 是在 profile 目录里转发给 pnpm，启动 DSH 不会安装任何东西，也没有任何页面会查 registry。要换到某个版本：
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web outdated                   # 有没有更新的版本？
-npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@latest  # 换上去
+npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@0.1.1
 # 重启 DSH，再刷新浏览器页面
 ```
 
-`add <pkg>@latest` 会把解析到的版本精确写死。`update <pkg>` 只在安装时 pnpm 写下的范围内移动，而 `^0.x` 的 caret 不会跨过 minor 版本号，所以在 0.x 这条线上它什么都不会动；`update --latest <pkg>` 也能跨过去。重启是必需的：运行中的 host 会一直用它挂载时的那个包，开着 `patchReload: live` 也一样。
-
-pnpm 11 起会拒绝发布未满 24 小时的版本（`minimumReleaseAge`，默认 1440 分钟）。想在发布当天就装到，在 profile 的 `pnpm-workspace.yaml` 里把包排除：
-
-```yaml
-minimumReleaseAgeExclude:
-  - dsh-notify-zeta
-```
+版本要明确写出。`update` 只在安装时 pnpm 写下的 `^0.x` 范围内移动；pnpm 11 起会把发布未满 24 小时的版本从 `outdated` 与 `@latest` 里隐藏（`minimumReleaseAge`），明确指定版本则立刻能装。
 
 ## 快速验证
 

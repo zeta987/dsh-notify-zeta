@@ -50,31 +50,19 @@ The package declares `dsh.bundle.patch`, so no manual patch editing is needed. T
 
 ### Update
 
-Nothing updates on its own. `dsh plugin` forwards to pnpm inside the profile,
-starting DSH installs nothing, and neither the host nor the Plugins page checks
-a registry or shows a newer version. A release reaches a profile only when you
-ask for it:
+Nothing updates on its own: `dsh plugin` forwards to pnpm inside the profile,
+starting DSH installs nothing, and no page checks a registry. To move to a
+release:
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web outdated                   # is there a newer version?
-npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@latest  # move to it
+npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@0.1.1
 # restart DSH, then refresh the browser page
 ```
 
-`add <pkg>@latest` pins the exact version it resolved. `update <pkg>` stays
-inside the range pnpm wrote at install time, and a `^0.x` caret does not cross
-a minor bump, so on a 0.x line it moves nothing; `update --latest <pkg>` also
-crosses it. The restart is required: a running host keeps the package it
-mounted, even under `patchReload: live`.
-
-pnpm 11 and later refuse a version published less than 24 hours ago
-(`minimumReleaseAge`, default 1440 minutes). To install a release the day it
-ships, exempt the package in the profile's `pnpm-workspace.yaml`:
-
-```yaml
-minimumReleaseAgeExclude:
-  - dsh-notify-zeta
-```
+Name the version. `update` stays inside the `^0.x` range pnpm wrote at install
+time, and pnpm 11+ hides a version published less than 24 hours ago from
+`outdated` and `@latest` (`minimumReleaseAge`); an explicit version installs
+right away.
 
 ### Quick test
 

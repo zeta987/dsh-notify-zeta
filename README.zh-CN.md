@@ -64,6 +64,25 @@ npx @deepseek-ai/dsh web
 - 如果本地已安装真实的 `dsh` CLI，可直接使用 `dsh`；示例使用 `npx` 是为了避免 shell 别名带来的干扰。
 - 无需手动编辑补丁：包自身声明了 `dsh.bundle.patch`。
 
+### 更新
+
+不会自动更新。`dsh plugin` 是在 profile 目录里转发给 pnpm，启动 DSH 不会安装任何东西，host 与 Plugins 设置页也都不查 registry、不显示新版本。新版本只有在你主动要求时才会进到 profile：
+
+```sh
+npx @deepseek-ai/dsh plugin --profile web outdated                   # 有没有更新的版本？
+npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@latest  # 换上去
+# 重启 DSH，再刷新浏览器页面
+```
+
+`add <pkg>@latest` 会把解析到的版本精确写死。`update <pkg>` 只在安装时 pnpm 写下的范围内移动，而 `^0.x` 的 caret 不会跨过 minor 版本号，所以在 0.x 这条线上它什么都不会动；`update --latest <pkg>` 也能跨过去。重启是必需的：运行中的 host 会一直用它挂载时的那个包，开着 `patchReload: live` 也一样。
+
+pnpm 11 起会拒绝发布未满 24 小时的版本（`minimumReleaseAge`，默认 1440 分钟）。想在发布当天就装到，在 profile 的 `pnpm-workspace.yaml` 里把包排除：
+
+```yaml
+minimumReleaseAgeExclude:
+  - dsh-notify-zeta
+```
+
 ## 快速验证
 
 在通知中心点击合成测试按钮（浏览器 / 原生 / 问题 / 审批），确认各通道可以正常显示通知。合成测试不会运行真实工具，也不会调用模型。

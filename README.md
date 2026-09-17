@@ -48,6 +48,34 @@ If DSH was already running, restart that process after installation, refresh the
 
 The package declares `dsh.bundle.patch`, so no manual patch editing is needed. The examples use `npx` to avoid shell aliases; an installed `dsh` command works directly if it resolves to the real DSH CLI.
 
+### Update
+
+Nothing updates on its own. `dsh plugin` forwards to pnpm inside the profile,
+starting DSH installs nothing, and neither the host nor the Plugins page checks
+a registry or shows a newer version. A release reaches a profile only when you
+ask for it:
+
+```sh
+npx @deepseek-ai/dsh plugin --profile web outdated                   # is there a newer version?
+npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@latest  # move to it
+# restart DSH, then refresh the browser page
+```
+
+`add <pkg>@latest` pins the exact version it resolved. `update <pkg>` stays
+inside the range pnpm wrote at install time, and a `^0.x` caret does not cross
+a minor bump, so on a 0.x line it moves nothing; `update --latest <pkg>` also
+crosses it. The restart is required: a running host keeps the package it
+mounted, even under `patchReload: live`.
+
+pnpm 11 and later refuse a version published less than 24 hours ago
+(`minimumReleaseAge`, default 1440 minutes). To install a release the day it
+ships, exempt the package in the profile's `pnpm-workspace.yaml`:
+
+```yaml
+minimumReleaseAgeExclude:
+  - dsh-notify-zeta
+```
+
 ### Quick test
 
 1. Open **Settings → Zeta 通知**.

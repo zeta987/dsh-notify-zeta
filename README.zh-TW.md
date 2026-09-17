@@ -48,6 +48,25 @@ npx @deepseek-ai/dsh web
 
 套件已宣告 `dsh.bundle.patch`，不需要手動編輯 patch。範例使用 `npx` 以避開 shell 別名；若已安裝的 `dsh` 指令確實指向真正的 DSH CLI，也可以直接使用。
 
+### 更新
+
+不會自動更新。`dsh plugin` 是在 profile 目錄裡轉發給 pnpm，啟動 DSH 不會安裝任何東西，host 與 Plugins 設定頁也都不查 registry、不顯示新版本。新版本只有在你主動要求時才會進到 profile：
+
+```sh
+npx @deepseek-ai/dsh plugin --profile web outdated                   # 有沒有更新的版本？
+npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@latest  # 換上去
+# 重啟 DSH，再重新整理瀏覽器頁面
+```
+
+`add <pkg>@latest` 會把解析到的版本精確寫死。`update <pkg>` 只在安裝時 pnpm 寫下的範圍內移動，而 `^0.x` 的 caret 不會跨過 minor 版號，所以在 0.x 這條線上它什麼都不會動；`update --latest <pkg>` 也能跨過去。重啟是必要的：跑著的 host 會一直用它掛載時的那個套件，開著 `patchReload: live` 也一樣。
+
+pnpm 11 起會拒絕發布未滿 24 小時的版本（`minimumReleaseAge`，預設 1440 分鐘）。想在發布當天就裝到，在 profile 的 `pnpm-workspace.yaml` 把套件排除：
+
+```yaml
+minimumReleaseAgeExclude:
+  - dsh-notify-zeta
+```
+
 ### 快速測試
 
 1. 開啟 **Settings → Zeta 通知**。

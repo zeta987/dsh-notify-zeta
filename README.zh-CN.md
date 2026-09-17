@@ -5,9 +5,9 @@
 DSH（DeepSeek Harness）第三方社区插件：在 DSH 内提供应用内通知中心、Windows 原生交互卡片以及浏览器系统通知。
 除下方列出的前置要求外，无需安装 .NET 10 或下载可执行文件，无 npm 运行时依赖，安装过程不执行生命周期脚本；原生卡片基于 Windows 自带的 Windows PowerShell 5.1 + WPF。
 
-**版本** 0.1.1 · **许可证** MIT · **仓库** https://github.com/zeta987/dsh-notify-zeta
+**版本** 0.1.2 · **许可证** MIT · **仓库** https://github.com/zeta987/dsh-notify-zeta
 
-> 本插件为第三方社区项目，与 DeepSeek 无隶属关系。插件界面目前仅提供繁体中文；本仓库的 README 提供多语言版本，但本版本未提供英文或简体中文界面本地化。
+> 本插件为第三方社区项目，与 DeepSeek 无隶属关系。插件界面跟随 DSH 的语言，提供繁体中文与英文；本仓库的 README 提供多语言版本，但本版本未提供简体中文界面本地化。
 
 ## 主要功能
 
@@ -18,13 +18,14 @@ DSH（DeepSeek Harness）第三方社区插件：在 DSH 内提供应用内通�
 - **子智能体事件**使用单独开关，默认关闭；DSH 自身关于禁止子智能体向人类实时提问的限制仍然有效。
 - **通知抑制**：常规通知仅可针对当前可见会话抑制；其他会话与待处理的交互卡片仍会照常通知。
 - **送达方式**：即使浏览器标签页已关闭，Windows 主机仍可发送卡片，但 DSH 进程必须在该 Windows 机器上保持运行。
-- 两个通道、声音与内容预览默认开启。原生声音使用 Windows 系统音量；浏览器声音在用户交互后播放本地合成的提示音，不下载远程音频。
+- 两个通道、声音与内容预览默认开启。
+- **界面语言跟随 DSH**：页面与通知文字按 DSH 选定的语言显示繁体中文或英文，切换语言后页面立即重新标注。插件配置行的 `language` 字段可覆盖：默认 `auto` 跟随 DSH，尚未选过语言时使用繁体中文；`zh` 或 `en` 则固定主机生成的标题语言。已写入历史的通知保留当时的语言。原生声音使用 Windows 系统音量；浏览器声音在用户交互后播放本地合成的提示音，不下载远程音频。
 
 ## 截图
 
 以下截图为使用合成/虚构演示数据拍摄的演示画面，不是真实会话记录。
 
-![应用内通知中心：设置、14 个触发开关与最近通知](https://raw.githubusercontent.com/zeta987/dsh-notify-zeta/main/docs/images/notification-center.png)
+![Zeta 通知设置页：待处理的问题卡片、通知方式、通知时机、测试与最近通知](https://raw.githubusercontent.com/zeta987/dsh-notify-zeta/main/docs/images/notification-center-zh.png)
 
 *图 1：应用内通知中心（Settings → Zeta 通知）中的 14 个触发开关与最近通知。*
 
@@ -69,7 +70,7 @@ npx @deepseek-ai/dsh web
 不会自动更新：`dsh plugin` 是在 profile 目录里转发给 pnpm，启动 DSH 不会安装任何东西，也没有任何页面会查 registry。要换到某个版本：
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@0.1.1
+npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@0.1.2
 # 重启 DSH，再刷新浏览器页面
 ```
 
@@ -135,7 +136,7 @@ npx @deepseek-ai/dsh plugin --profile web remove dsh-notify-zeta
 - **关闭浏览器标签页后**：原生卡片仍可送达，但 DSH 进程必须在该 Windows 机器上保持运行。
 - **普通通知的原生投递未获确认**：插件仅对该条新通知回退一次到浏览器通道；已成功显示的旧通知，以及已解决或已取消的请求，不会在后续助手失败时被重放。
 - **交互式卡片无法通过原生通道显示**：请求将转交标准 DSH UI 处理；浏览器系统通知不承担交互式作答功能。
-- **界面语言**：当前界面为繁体中文，本版本未提供英文或简体中文界面。
+- **界面语言**：界面跟随 DSH 的语言（繁体中文或英文）；本版本未提供简体中文界面。
 
 ## 开发
 

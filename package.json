@@ -1,6 +1,6 @@
 {
   "name": "dsh-notify-zeta",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "DeepSeek Harness notification center with interactive Windows question and approval cards",
   "license": "MIT",
@@ -9,7 +9,7 @@
   "homepage": "https://github.com/zeta987/dsh-notify-zeta#readme",
   "bugs": { "url": "https://github.com/zeta987/dsh-notify-zeta/issues" },
   "keywords": ["dsh-plugin", "deepseek-harness", "dsh", "notifications", "windows", "wpf", "approval"],
-  "engines": { "node": ">=22.19.0", "dsh": "0.1.5-rc.1" },
+  "engines": { "node": ">=22.19.0", "dsh": ">=0.1.5-rc.1" },
   "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
   "main": "lib/index.js",
   "exports": { ".": "./lib/index.js", "./client": "./lib/client.js", "./package.json": "./package.json" },

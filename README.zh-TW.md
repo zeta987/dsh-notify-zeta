@@ -4,7 +4,7 @@
 
 為 DeepSeek Harness（DSH）提供通知與可互動的 Windows 卡片。只要 DSH 持續在 Windows 主機上執行，即使瀏覽器分頁已經關閉，也能透過原生卡片掌握任務進度、回答提問並處理一次性核准。
 
-`dsh-notify-zeta`（版本 0.1.1）是獨立的社群外掛，與 DeepSeek 沒有隸屬關係。外掛本身的介面目前為繁體中文；本 README 提供英文、繁體中文與簡體中文版本。
+`dsh-notify-zeta`（版本 0.1.2）是獨立的社群外掛，與 DeepSeek 沒有隸屬關係。外掛介面跟隨 DSH 的語言，提供繁體中文與英文；本 README 提供英文、繁體中文與簡體中文版本。
 
 ## 功能
 
@@ -13,10 +13,11 @@
 - **兩種通知管道。** 只要 DSH 程序仍在那台 Windows 機器上執行，原生 Windows 卡片在瀏覽器分頁關閉時照樣送達。瀏覽器系統通知則需要頁面保持開啟、處於安全環境（HTTPS 或 loopback），並對確切的來源與連接埠授予通知權限。
 - **自行決定要收到什麼。** 14 個事件開關、獨立的子代理開關、聲音、內容預覽，以及只針對目前檢視中的工作階段抑制一般通知。
 - **安全的測試按鈕。** 內建瀏覽器、原生、提問與核准測試，只會產生模擬通知，不會執行真實工具，也不會呼叫模型。
+- **介面跟隨 DSH 語言。** 頁面與通知文字依 DSH 選定的語言顯示繁體中文或英文，切換語言後頁面立即重新上標。外掛設定列的 `language` 欄位可以覆寫：預設 `auto` 跟隨 DSH，尚未選過語言時使用繁體中文；`zh` 或 `en` 則固定主機產生的標題語言。已經寫入紀錄的通知保留當時的語言。
 
 ## 截圖
 
-![Zeta 通知的設定、14 個事件開關與最近通知](https://raw.githubusercontent.com/zeta987/dsh-notify-zeta/main/docs/images/notification-center.png)
+![Zeta 通知設定頁：待處理的問題卡片、通知方式、通知時機、測試與最近通知](https://raw.githubusercontent.com/zeta987/dsh-notify-zeta/main/docs/images/notification-center-zh.png)
 
 DSH 介面內通知中心的設定、14 個事件開關與最近通知。
 
@@ -53,7 +54,7 @@ npx @deepseek-ai/dsh web
 不會自動更新：`dsh plugin` 是在 profile 目錄裡轉發給 pnpm，啟動 DSH 不會安裝任何東西，也沒有任何頁面會查 registry。要換到某個版本：
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@0.1.1
+npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@0.1.2
 # 重啟 DSH，再重新整理瀏覽器頁面
 ```
 

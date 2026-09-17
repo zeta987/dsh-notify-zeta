@@ -114,6 +114,26 @@ function event(patch = {}) {
   }
 }
 
+function localeCtx(active) {
+  const listeners = new Set()
+  return {
+    getSnapshot: () => ({ active: active.id }),
+    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener) },
+    notify() { for (const listener of [...listeners]) listener() },
+  }
+}
+
+function textsOf(node, found = []) {
+  if (node === null || node === undefined || node === false) return found
+  if (typeof node === 'string') { found.push(node); return found }
+  if (Array.isArray(node)) { for (const child of node) textsOf(child, found); return found }
+  if (typeof node === 'object') {
+    for (const value of Object.values(node.props ?? {})) if (typeof value === 'string') found.push(value)
+    textsOf(node.children ?? [], found)
+  }
+  return found
+}
+
 function jsonResponse(status, value) {
   return {
     ok: status >= 200 && status < 300,
@@ -143,8 +163,60 @@ test('registers the installed DSH settings section contract', async () => {
   assert.equal(registered.entry.name, 'settings.section')
   assert.equal(registered.entry.id, 'zeta-notify')
   assert.equal(registered.entry.order, 60)
-  assert.equal(registered.entry.label(), 'Zeta 通知')
+  assert.equal(registered.entry.label(), exports.STRINGS.en.title)
   assert.equal(typeof registered.component, 'function')
+})
+
+test('every page string exists in both languages', async () => {
+  const { exports } = await loadClient()
+  const shape = (dictionary) => Object.entries(dictionary)
+    .map(([key, value]) => `${key}:${value && typeof value === 'object' ? Object.keys(value).join(',') : typeof value}`)
+    .sort()
+  assert.deepEqual(shape(exports.STRINGS.en), shape(exports.STRINGS.zh))
+  assert.equal(exports.pickStrings('zh-TW'), exports.STRINGS.zh)
+  assert.equal(exports.pickStrings('en-US'), exports.STRINGS.en)
+  assert.equal(exports.pickStrings(undefined), exports.STRINGS.en)
+})
+
+test('the section title and page follow the dsh UI language and re-label on a switch', async () => {
+  const { exports } = await loadClient()
+  const active = { id: 'en' }
+  let registered
+  const ctx = {
+    slots: {
+      inject(_name, factory) { return factory() },
+      register(entry, component) { registered = { entry, component } },
+    },
+    sessions: { list: { getSnapshot: () => ({ current: undefined }), subscribe: () => () => {} } },
+    locale: localeCtx(active),
+    effect() {},
+  }
+
+  exports.apply(ctx)
+  assert.equal(registered.entry.label(), exports.STRINGS.en.title)
+  const english = textsOf(registered.component())
+  assert.ok(english.includes(exports.STRINGS.en.title))
+  assert.ok(english.includes(exports.STRINGS.en.loading))
+
+  active.id = 'zh'
+  ctx.locale.notify()
+  assert.equal(registered.entry.label(), exports.STRINGS.zh.title)
+  const chinese = textsOf(registered.component())
+  assert.ok(chinese.includes(exports.STRINGS.zh.title))
+  assert.ok(chinese.includes(exports.STRINGS.zh.loading))
+})
+
+test('runtime messages are written in the language active when they are produced', async () => {
+  const { exports } = await loadClient()
+  const active = { id: 'en' }
+  const runtime = exports.createClientRuntime({ getLocale: () => active.id })
+
+  assert.equal(await runtime.runTest('nope'), false)
+  assert.equal(runtime.getState().message.text, exports.STRINGS.en.unknownTest)
+
+  active.id = 'zh'
+  assert.equal(await runtime.runTest('nope'), false)
+  assert.equal(runtime.getState().message.text, exports.STRINGS.zh.unknownTest)
 })
 
 test('seeds existing ids and only delivers newly observed events once', async () => {
@@ -312,8 +384,11 @@ test('browser delivery obeys settings, visibility, native deduplication and priv
   assert.equal(exports.browserDeliveryDecision(settings(), { ...base, isTest: true, channel: 'browser', nativeDelivered: true }, { permission: 'granted', hidden: true }), true)
   assert.equal(exports.browserDeliveryDecision(settings(), base, { permission: 'denied', hidden: true }), false)
 
-  assert.equal(exports.notificationBody(settings({ preview: false }), base), '有新的 DSH 通知，請開啟 DSH 查看。')
+  assert.equal(exports.notificationBody(settings({ preview: false }), base), exports.STRINGS.en.notifyHidden)
+  assert.equal(exports.notificationBody(settings({ preview: false }), base, exports.STRINGS.zh), exports.STRINGS.zh.notifyHidden)
   assert.equal(exports.notificationBody(settings({ preview: true }), base), '已整理完資料。')
+  assert.equal(exports.notificationTitle(settings({ preview: false }), base), exports.STRINGS.en.events.completed)
+  assert.equal(exports.notificationTitle(settings({ preview: false }), base, exports.STRINGS.zh), exports.STRINGS.zh.events.completed)
 })
 
 test('notification click focuses DSH and opens the matching session when available', async () => {
@@ -391,7 +466,7 @@ test('reports a stale one-shot decision and refreshes authoritative state', asyn
   const ok = await runtime.submitDecision(event({ id: 'approval-1', kind: 'approval', requestId: 'r1', token: 't1' }), 'allowed-once')
 
   assert.equal(ok, false)
-  assert.match(runtime.getState().message.text, /已經處理或失效/)
+  assert.equal(runtime.getState().message.text, exports.STRINGS.en.errorStale)
   assert.equal(runtime.getState().message.error, true)
   assert.equal(calls[0].url, '/__dsh/zeta-notify/answer')
   assert.deepEqual(JSON.parse(calls[0].init.body).decision, 'allowed-once')
@@ -442,7 +517,11 @@ test('native helper error takes priority over availability and clears on ready s
     native: { available: true },
   }))
   status = exports.nativeStatus(runtime.getState().snapshot.native)
-  assert.deepEqual(JSON.parse(JSON.stringify(status)), { text: 'Windows 浮窗可用', error: false })
+  assert.deepEqual(JSON.parse(JSON.stringify(status)), { text: exports.STRINGS.en.nativeReady, error: false })
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(exports.nativeStatus(runtime.getState().snapshot.native, exports.STRINGS.zh))),
+    { text: exports.STRINGS.zh.nativeReady, error: false },
+  )
 })
 
 test('native, browser, question and approval tests plus clear expose success and auth errors', async () => {
@@ -459,7 +538,7 @@ test('native, browser, question and approval tests plus clear expose success and
 
   for (const kind of ['native', 'browser', 'question', 'approval']) {
     assert.equal(await runtime.runTest(kind), true)
-    assert.match(runtime.getState().message.text, /測試已送出/)
+    assert.equal(runtime.getState().message.text, exports.STRINGS.en.testSent(exports.STRINGS.en.tests[kind]))
   }
   assert.deepEqual(calls.slice(0, 4).map(({ url, init }) => [url, JSON.parse(init.body).kind]), [
     ['/__dsh/zeta-notify/test', 'native'],
@@ -470,16 +549,16 @@ test('native, browser, question and approval tests plus clear expose success and
 
   rejectClear = true
   assert.equal(await runtime.clearHistory(), false)
-  assert.match(runtime.getState().message.text, /登入|驗證/)
+  assert.equal(runtime.getState().message.text, exports.STRINGS.en.errorAuth)
   assert.equal(runtime.getState().message.error, true)
 
   const unsupported = exports.createClientRuntime({ fetch, NotificationApi: null })
   assert.equal(await unsupported.runTest('browser'), false)
-  assert.match(unsupported.getState().message.text, /不支援/)
+  assert.equal(unsupported.getState().message.text, exports.STRINGS.en.notifyUnsupported)
   class DeniedNotification { static permission = 'denied' }
-  const denied = exports.createClientRuntime({ fetch, NotificationApi: DeniedNotification })
+  const denied = exports.createClientRuntime({ fetch, NotificationApi: DeniedNotification, getLocale: () => 'zh-TW' })
   assert.equal(await denied.runTest('browser'), false)
-  assert.match(denied.getState().message.text, /權限/)
+  assert.equal(denied.getState().message.text, exports.STRINGS.zh.permissionMissing)
 })
 
 test('subscribes to SSE after an offline initial state request and baselines the recovery snapshot', async () => {

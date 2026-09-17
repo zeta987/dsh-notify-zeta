@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createCenter, defaultSettings, normalizeSessionEvent } from '../lib/core.js';
+import { createCenter, defaultSettings, normalizeSessionEvent, validateSettings, validateAnswers, HOST_STRINGS } from '../lib/core.js';
 
 const questions=[{id:'one',question:'Choose',options:[{label:'A'},{label:'B'}]}];
 const request=(center,extra={})=>center.openRequest({kind:'question',sessionId:'session-a',title:'Question',questions,...extra});
@@ -61,6 +61,26 @@ test('settings reject unknown keys and nonboolean trigger values',()=>{
   const c=createCenter();assert.throws(()=>c.updateSettings({autoApprove:true}),{status:400});
   assert.throws(()=>c.updateSettings({events:{question:'false'}}),{status:400});
   c.updateSettings({events:{question:false}});assert.equal(c.snapshot().settings.events.question,false);assert.equal(c.snapshot().settings.events.error,true);
+});
+test('request validation failures are written in the language asked for, Chinese by default',()=>{
+  assert.throws(()=>validateSettings({autoApprove:true}),{message:HOST_STRINGS.zh.errors.settingUnsupported});
+  assert.throws(()=>validateSettings({autoApprove:true},undefined,'en'),{message:HOST_STRINGS.en.errors.settingUnsupported});
+  assert.throws(()=>validateSettings('nope',undefined,'en'),{message:HOST_STRINGS.en.errors.settingsNotObject});
+  assert.throws(()=>validateAnswers(questions,[],'en'),{message:HOST_STRINGS.en.errors.answerAll});
+  assert.throws(()=>validateAnswers(questions,[{id:'one',selected:['C']}],'en'),{message:HOST_STRINGS.en.errors.answerUnknownOption});
+  const english=createCenter({language:'en'});
+  assert.throws(()=>english.publish({kind:'nope',sessionId:'a'}),{message:HOST_STRINGS.en.errors.kindInvalid});
+  assert.throws(()=>english.respond('nope'),{message:HOST_STRINGS.en.errors.answerPayloadInvalid});
+  const approval=english.openRequest({kind:'approval',sessionId:'a',title:'Tool'});
+  approval.promise.catch(()=>{});
+  assert.throws(()=>english.respond({id:approval.event.id,requestId:approval.event.requestId,token:approval.event.token,sessionId:'a',decision:'allow-always'}),{message:HOST_STRINGS.en.errors.decisionInvalid});
+  english.dispose();
+});
+test('a center reads its language at throw time, not at construction',()=>{
+  let id='zh';const center=createCenter({language:()=>id});
+  assert.throws(()=>center.updateSettings({autoApprove:true}),{message:HOST_STRINGS.zh.errors.settingUnsupported});
+  id='en';
+  assert.throws(()=>center.updateSettings({autoApprove:true}),{message:HOST_STRINGS.en.errors.settingUnsupported});
 });
 test('turn end reasons are distinguished and plan review recognized',()=>{
   for(const [reason,kind] of [['completed','completed'],['error','error'],['aborted','aborted'],['interrupted','interrupted'],['blocked','blocked'],['max-tokens','maxTokens']]) {

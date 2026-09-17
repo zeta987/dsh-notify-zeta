@@ -4,19 +4,20 @@
 
 Notifications and interactive Windows cards for DeepSeek Harness (DSH). Follow task progress, answer questions, and handle one-time approvals from native cards, even with the browser tab closed, as long as DSH keeps running on the Windows host.
 
-`dsh-notify-zeta` (version 0.1.1) is an independent community plugin and is not affiliated with DeepSeek. The plugin's own interface is currently in Traditional Chinese; this README is available in English, Traditional Chinese, and Simplified Chinese.
+`dsh-notify-zeta` (version 0.1.2) is an independent community plugin and is not affiliated with DeepSeek. The plugin's interface follows the language DSH is running in, English or Traditional Chinese; this README is available in English, Traditional Chinese, and Simplified Chinese.
 
 ## Features
 
-- **Notification center inside DSH.** Open **Settings → Zeta 通知** to review recent notices, filter by unread state or type, mark items as read, and clear recent history.
+- **Notification center inside DSH.** Open **Settings → Zeta Notify** to review recent notices, filter by unread state or type, mark items as read, and clear recent history.
 - **Interactive Windows cards.** Answer several questions in one card with single-choice, multiple-choice, or free-text responses, read plan details, and explicitly allow or reject one operation. These are WPF windows, not reply fields in the Windows notification center.
 - **Two delivery channels.** Native Windows cards arrive even while the browser tab is closed, as long as the DSH process keeps running on that Windows machine. Browser system notifications need a live page, a secure context (HTTPS or loopback), and notification permission for the exact origin and port.
 - **Control over what reaches you.** 14 event switches, a separate child-agent switch, sound, content previews, and the option to suppress ordinary notices for the session you are currently viewing.
 - **Safe test buttons.** Built-in browser, native, question, and approval tests create synthetic notices without running real tools or calling a model.
+- **Follows the DSH language.** The page and the notification text are written in English or Traditional Chinese, following the language selected in DSH; switching the language relabels the page right away. The `language` config field of the plugin row overrides that: `auto` (the default) follows DSH and falls back to Chinese when no language was ever selected, while `zh` or `en` pins host-written titles to one language. Notices already in the history keep the language they were written in.
 
 ## Screenshots
 
-![Zeta Notify settings, 14 event switches, and recent notices](https://raw.githubusercontent.com/zeta987/dsh-notify-zeta/main/docs/images/notification-center.png)
+![Zeta Notify settings page in English: a waiting approval card, delivery switches, triggers, tests, and recent notices](https://raw.githubusercontent.com/zeta987/dsh-notify-zeta/main/docs/images/notification-center-en.png)
 
 Settings, the 14 event switches, and recent notices in the in-app notification center.
 
@@ -44,7 +45,7 @@ npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta
 npx @deepseek-ai/dsh web
 ```
 
-If DSH was already running, restart that process after installation, refresh the browser page, and open **Settings → Zeta 通知**.
+If DSH was already running, restart that process after installation, refresh the browser page, and open **Settings → Zeta Notify**.
 
 The package declares `dsh.bundle.patch`, so no manual patch editing is needed. The examples use `npx` to avoid shell aliases; an installed `dsh` command works directly if it resolves to the real DSH CLI.
 
@@ -55,7 +56,7 @@ starting DSH installs nothing, and no page checks a registry. To move to a
 release:
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@0.1.1
+npx @deepseek-ai/dsh plugin --profile web add dsh-notify-zeta@0.1.2
 # restart DSH, then refresh the browser page
 ```
 
@@ -66,7 +67,7 @@ right away.
 
 ### Quick test
 
-1. Open **Settings → Zeta 通知**.
+1. Open **Settings → Zeta Notify**.
 2. Grant browser notification permission if you want that channel.
 3. Press the browser and native test buttons, then try the synthetic question and approval cards.
 

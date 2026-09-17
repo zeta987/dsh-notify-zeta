@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {createHost} from '../lib/index.js';
+import {HOST_STRINGS} from '../lib/core.js';
 
 function fixture() {
   const hooks=new Map(),routes=new Map(),cards=[];
@@ -160,6 +161,58 @@ test('jobs and goal events use the official terminal observer and operations',()
   assert.equal(host.center.snapshot().history[0].kind,'jobFailed');
   f.hooks.get('goal/changed').fn({agent:{id:'s'},change:{operation:'complete'}});
   assert.equal(host.center.snapshot().history[0].kind,'goal');host.dispose();
+});
+test('HTTP route and request validation errors follow the host language',async()=>{
+  for(const [language,strings] of [['en',HOST_STRINGS.en],['zh',HOST_STRINGS.zh]]) {
+    const f=fixture();const host=createHost(f.ctx,{bridge:f.bridge,language});
+    const server=http.createServer((req,res)=>f.routes.get(new URL(req.url,'http://localhost').pathname)?.handler(req,res));
+    await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+    const base=`http://127.0.0.1:${server.address().port}/__dsh/zeta-notify`,origin=new URL(base).origin;
+    const post=(path,body,headers={})=>fetch(`${base}${path}`,{method:'POST',headers:{cookie:'auth=test',origin,'content-type':'application/json',...headers},body});
+    const errorOf=async response=>(await response.json()).error;
+    try {
+      assert.equal(await errorOf(await fetch(`${base}/state`)),strings.errors.reauth);
+      assert.equal(await errorOf(await fetch(`${base}/answer`,{method:'GET',headers:{cookie:'auth=test'}})),strings.errors.methodNotAllowed);
+      assert.equal(await errorOf(await post('/settings','{}',{'content-type':'text/plain'})),strings.errors.jsonRequired);
+      assert.equal(await errorOf(await post('/settings','not json')),strings.errors.jsonInvalid);
+      assert.equal(await errorOf(await post('/settings','{"patch":{"autoApprove":true}}')),strings.errors.settingUnsupported);
+      assert.equal(await errorOf(await post('/visibility','{"clientId":"c"}')),strings.errors.visibilityInvalid);
+      assert.equal(await errorOf(await post('/test','{"kind":"nope"}')),strings.errors.testKindInvalid);
+    } finally {host.dispose();await new Promise(resolve=>server.close(resolve));}
+  }
+});
+test('an explicit language publishes host titles in that language',async()=>{
+  for(const [language,strings] of [['en',HOST_STRINGS.en],['zh',HOST_STRINGS.zh]]) {
+    const f=fixture();const host=createHost(f.ctx,{bridge:f.bridge,language});
+    f.hooks.get('goal/changed').fn({agent:{id:'s'},change:{operation:'complete'}});
+    assert.equal(host.center.snapshot().history[0].title,strings.goalCompleted);
+    host.nativeFailure();assert.equal(host.snapshot().native.error,strings.nativeUnavailable);
+    host.dispose();
+  }
+});
+test('automatic language follows the stored dsh locale preference and stays Chinese without one',()=>{
+  for(const [preference,strings] of [['en',HOST_STRINGS.en],['zh-TW',HOST_STRINGS.zh],[undefined,HOST_STRINGS.zh]]) {
+    const f=fixture();f.ctx.settings={get:ns=>ns==='locale'?(preference?{preference}:{}):undefined};
+    const host=createHost(f.ctx,{bridge:f.bridge});
+    f.hooks.get('goal/changed').fn({agent:{id:'s'},change:{operation:'pause'}});
+    assert.equal(host.center.snapshot().history[0].title,strings.goalPaused);
+    host.dispose();
+  }
+  const missing=fixture();const host=createHost(missing.ctx,{bridge:missing.bridge});
+  missing.hooks.get('goal/changed').fn({agent:{id:'s'},change:{operation:'block'}});
+  assert.equal(host.center.snapshot().history[0].title,HOST_STRINGS.zh.goalBlocked);host.dispose();
+});
+test('a language switch after startup localizes the next published title',()=>{
+  const f=fixture();let preference='zh';
+  f.ctx.settings={get:()=>({preference})};
+  const host=createHost(f.ctx,{bridge:f.bridge});
+  f.hooks.get('goal/changed').fn({agent:{id:'s'},change:{operation:'complete'}});
+  assert.equal(host.center.snapshot().history[0].title,HOST_STRINGS.zh.goalCompleted);
+  preference='en';
+  f.hooks.get('goal/changed').fn({agent:{id:'s'},change:{operation:'complete'}});
+  assert.equal(host.center.snapshot().history[0].title,HOST_STRINGS.en.goalCompleted);
+  assert.equal(host.center.snapshot().history[1].title,HOST_STRINGS.zh.goalCompleted);
+  host.dispose();
 });
 test('invalid native answer restores the same card for correction',async()=>{
   const f=fixture();const host=createHost(f.ctx,{bridge:f.bridge});

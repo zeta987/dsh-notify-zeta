@@ -13,8 +13,9 @@
 # Provenance attestation is switched on only while the repository is public:
 # npm does not generate provenance for a private repository.
 #
-# The job runs on Windows because the test suite exercises the native
-# PowerShell card; the shell steps use bash, which the runner provides.
+# Tests run on Windows because the suite exercises the native PowerShell
+# card; publishing runs on Ubuntu, the runner the npm OIDC exchange is
+# exercised on by the sibling dsh-roles-zeta workflow.
 name: publish
 
 on:
@@ -27,11 +28,19 @@ permissions:
   id-token: write
 
 jobs:
-  publish:
+  test:
     runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - run: npm test
+      - run: npm pack --dry-run --ignore-scripts
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -50,11 +59,6 @@ jobs:
             echo "tag v$tag does not match package.json version $version" >&2
             exit 1
           fi
-
-      - name: Test and pack
-        run: |
-          npm test
-          npm pack --dry-run --ignore-scripts
 
       - name: Publish
         env:

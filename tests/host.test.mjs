@@ -155,12 +155,25 @@ test('excluded child approvals delegate to the official presenter',async()=>{
   assert.equal(called,1);assert.equal(host.center.snapshot().pending.length,0);host.dispose();
 });
 test('jobs and goal events use the official terminal observer and operations',()=>{
-  const f=fixture();let onDone;
-  f.ctx.jobs={onJobDone(fn){onDone=fn;return ()=>{};}};const host=createHost(f.ctx,{bridge:f.bridge});
-  onDone({id:'j',label:'build',status:'failed'},{id:'s'});
-  assert.equal(host.center.snapshot().history[0].kind,'jobFailed');
+  const f=fixture();let onEvent,filter,disposed=false;
+  f.ctx.jobs={events:{subscribe(value,fn){filter=value;onEvent=fn;return ()=>{disposed=true;};}}};
+  f.ctx.agents={get:id=>id==='child'?{id,session:{id,header:{origin:'subagent'}}}:undefined};
+  const host=createHost(f.ctx,{bridge:f.bridge});assert.deepEqual(filter,{owners:'all'});
+  const settled=(job,extra={})=>onEvent({type:'settled',job:{kind:'bash',owner:'s',startedAt:1,finishedAt:2,...job},cause:'producer',awaited:false,...extra});
+  onEvent({type:'registered',job:{id:'j0',label:'build',owner:'s',status:'running'}});
+  settled({id:'j1',label:'build',status:'running'});
+  settled({id:'j2',label:'waited',status:'completed'},{awaited:true});
+  settled({id:'j3',label:'teardown',status:'killed'},{cause:'teardown'});
+  settled({id:'j4',label:'unowned',status:'completed',owner:undefined});
+  assert.equal(host.center.snapshot().history.length,0);
+  settled({id:'j',label:'build',status:'failed'});settled({id:'j',label:'build',status:'failed'});
+  const history=host.center.snapshot().history;
+  assert.equal(history.length,1);assert.equal(history[0].kind,'jobFailed');assert.equal(history[0].sessionId,'s');assert.equal(history[0].body,'build');
+  settled({id:'k',label:'stop',status:'killed'});settled({id:'c',label:'child',status:'completed',owner:'child'});
+  const [child,killed]=host.center.snapshot().history;
+  assert.equal(killed.kind,'jobKilled');assert.equal(child.sessionId,'child');assert.equal(child.origin,'subagent');
   f.hooks.get('goal/changed').fn({agent:{id:'s'},change:{operation:'complete'}});
-  assert.equal(host.center.snapshot().history[0].kind,'goal');host.dispose();
+  assert.equal(host.center.snapshot().history[0].kind,'goal');host.dispose();assert.equal(disposed,true);
 });
 test('HTTP route and request validation errors follow the host language',async()=>{
   for(const [language,strings] of [['en',HOST_STRINGS.en],['zh',HOST_STRINGS.zh]]) {
